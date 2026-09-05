@@ -132,6 +132,22 @@ body {
   letter-spacing: 1px;
 }
 
+#start-level {
+  background: var(--kbd-bg);
+  color: var(--text);
+  border: 1px solid var(--kbd-border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.hint {
+  font-size: 10px;
+  color: var(--controls-color);
+}
+
 #next-canvas {
   display: block;
   border: 1px solid var(--board-border);
@@ -202,7 +218,8 @@ kbd {
   color: var(--accent);
 }
 
-#restart-btn {
+#restart-btn,
+#play-btn {
   margin-top: 8px;
   background: var(--accent);
   color: var(--accent-text);
@@ -216,6 +233,14 @@ kbd {
   transition: background 0.15s;
 }
 
-#restart-btn:hover {
+#restart-btn:hover,
+#play-btn:hover {
   background: #9bbdff;
+}
+
+#start-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--accent);
 }

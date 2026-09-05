@@ -55,8 +55,15 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
+const startScreenEl = document.getElementById('start-screen');
+const playBtn = document.getElementById('play-btn');
+const startLevelSelect = document.getElementById('start-level');
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerups;
+const START_LEVEL_MIN = 1;
+const START_LEVEL_MAX = 15;
+
+let screen; // 'start' | 'playing' | 'paused' | 'gameover'
+let board, current, next, score, lines, level, startLevel, lastTime, dropAccum, dropInterval, animId, powerups;
 
 function themeVar(name) {
   return getComputedStyle(document.body).getPropertyValue(name).trim();
@@ -76,6 +83,20 @@ function toggleTheme() {
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+}
+
+// Velocidad de caída (ms entre pasos) según el nivel actual.
+function speedForLevel(level) {
+  return Math.max(100, 1000 - (level - 1) * 90);
+}
+
+// Valida, aplica y persiste el nivel inicial elegido para la PRÓXIMA partida.
+function applyStartLevel(n) {
+  const parsed = Math.floor(Number(n));
+  const clamped = Math.min(START_LEVEL_MAX, Math.max(START_LEVEL_MIN, isNaN(parsed) ? 1 : parsed));
+  startLevel = clamped;
+  localStorage.setItem('tetris-start-level', String(startLevel));
+  return startLevel;
 }
 
 function randomPiece() {
@@ -138,8 +159,10 @@ function clearLines() {
   if (cleared) {
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    // El nivel nunca baja de startLevel: usarlo como piso evita que arrancar
+    // en un nivel alto se resetee a 1 al limpiar la primera línea.
+    level = startLevel + Math.floor(lines / 10);
+    dropInterval = speedForLevel(level);
     updateHUD();
   }
 }
@@ -289,7 +312,7 @@ function draw() {
 
   drawPowerups();
 
-  if (!gameOver) {
+  if (screen === 'playing' || screen === 'paused') {
     // ghost
     const gy = ghostY();
     for (let r = 0; r < current.shape.length; r++)
@@ -408,8 +431,8 @@ function drawBlast(ctx, cx, cy, t) {
 }
 
 function endGame() {
-  if (gameOver) return;
-  gameOver = true;
+  if (screen === 'gameover') return;
+  screen = 'gameover';
   cancelAnimationFrame(animId);
   animId = null;
   draw();
@@ -419,22 +442,24 @@ function endGame() {
 }
 
 function togglePause() {
-  if (gameOver) return;
-  paused = !paused;
-  if (!paused) {
-    overlay.classList.add('hidden');
-    lastTime = performance.now();
-    loop(lastTime);
-  } else {
+  if (screen !== 'playing' && screen !== 'paused') return;
+  if (screen === 'playing') {
+    screen = 'paused';
     cancelAnimationFrame(animId);
+    animId = null;
     overlayTitle.textContent = 'PAUSA';
     overlayScore.textContent = '';
     overlay.classList.remove('hidden');
+  } else {
+    screen = 'playing';
+    overlay.classList.add('hidden');
+    lastTime = performance.now();
+    animId = requestAnimationFrame(loop);
   }
 }
 
 function loop(ts) {
-  if (gameOver || paused) { animId = null; return; }
+  if (screen !== 'playing') { animId = null; return; }
   const dt = ts - lastTime;
   lastTime = ts;
   dropAccum += dt;
@@ -447,33 +472,51 @@ function loop(ts) {
     }
   }
   updatePowerups(dt);
-  if (gameOver) return;
+  if (screen !== 'playing') return;
   draw();
   animId = requestAnimationFrame(loop);
 }
 
-function init() {
+// Reinicia el estado base compartido por la pantalla de inicio y una partida nueva.
+function resetGameState() {
   board = createBoard();
+  powerups = [];
   score = 0;
   lines = 0;
-  level = 1;
-  paused = false;
-  gameOver = false;
-  dropInterval = 1000;
+  level = startLevel;
   dropAccum = 0;
   lastTime = performance.now();
-  powerups = [];
+}
+
+// Pantalla de inicio: tablero vacío, sin loop corriendo.
+function showStart() {
+  resetGameState();
+  screen = 'start';
+  cancelAnimationFrame(animId);
+  animId = null;
+  overlay.classList.add('hidden');
+  startScreenEl.classList.remove('hidden');
+  updateHUD();
+  draw();
+}
+
+// Arranca una partida nueva con el nivel inicial configurado.
+function startGame() {
+  resetGameState();
+  screen = 'playing';
+  dropInterval = speedForLevel(level);
   next = randomPiece();
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
+  startScreenEl.classList.add('hidden');
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
 
 document.addEventListener('keydown', e => {
   if (e.code === 'KeyP') { togglePause(); return; }
-  if (paused || gameOver) return;
+  if (screen !== 'playing') return;
   switch (e.code) {
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -516,20 +559,36 @@ function powerupAt(bx, by) {
 }
 
 canvas.addEventListener('pointerdown', e => {
-  if (paused || gameOver) return;
+  if (screen !== 'playing') return;
   const { x, y } = boardCoordsFromEvent(e);
   const p = powerupAt(x, y);
   if (p) POWERUPS[p.key].onActivate(p);
 });
 
 canvas.addEventListener('pointermove', e => {
-  if (paused || gameOver) { canvas.style.cursor = 'default'; return; }
+  if (screen !== 'playing') { canvas.style.cursor = 'default'; return; }
   const { x, y } = boardCoordsFromEvent(e);
   canvas.style.cursor = powerupAt(x, y) ? 'pointer' : 'default';
 });
 
-restartBtn.addEventListener('click', init);
+restartBtn.addEventListener('click', startGame);
+playBtn.addEventListener('click', startGame);
 themeToggleBtn.addEventListener('click', toggleTheme);
 
+startLevelSelect.addEventListener('change', () => {
+  applyStartLevel(startLevelSelect.value);
+  // Solo refleja el cambio en el HUD si todavía no arrancó la partida;
+  // una partida en curso sigue con el nivel que ya tenía.
+  if (screen === 'start') {
+    level = startLevel;
+    updateHUD();
+  }
+  // Devuelve el foco al documento: si no, las flechas del teclado quedarían
+  // cambiando el <select> en vez de controlar el juego.
+  startLevelSelect.blur();
+});
+
 applyTheme(localStorage.getItem('theme') === 'light');
-init();
+applyStartLevel(localStorage.getItem('tetris-start-level'));
+startLevelSelect.value = String(startLevel);
+showStart();
