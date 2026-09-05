@@ -42,6 +42,29 @@ body.light-theme {
   --overlay-title-color: #c0392b;
 }
 
+body.skin-neon {
+  --bg: #05050a;
+  --board-bg: #060608;
+  --board-border: #1a1a2a;
+  --board-shadow: rgba(0, 255, 247, 0.15);
+  --grid-line: #0d0d14;
+  --block-highlight: rgba(255, 255, 255, 0.08);
+}
+
+body.skin-pastel {
+  --bg: #fdf3f0;
+  --board-bg: #fffaf7;
+  --board-border: #f0d9d2;
+  --board-shadow: rgba(200, 160, 150, 0.25);
+  --grid-line: #f5e6e0;
+  --block-highlight: rgba(255, 255, 255, 0.55);
+}
+
+body.skin-pixel {
+  --board-border: #454554;
+  --grid-line: #2c2c3a;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -137,6 +160,17 @@ body {
   border: 1px solid var(--board-border);
   background: var(--board-bg);
   border-radius: 4px;
+}
+
+#skin-select {
+  background: var(--board-bg);
+  color: var(--text);
+  border: 1px solid var(--board-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 /* ---- Controles ---- */
