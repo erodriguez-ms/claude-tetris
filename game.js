@@ -56,7 +56,20 @@ const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerups;
+const pauseMenu = document.getElementById('pause-menu');
+const pauseMenuView = document.getElementById('pause-menu-view');
+const controlsView = document.getElementById('controls-view');
+const resumeBtn = document.getElementById('resume-btn');
+const restartPauseBtn = document.getElementById('restart-pause-btn');
+const controlsBtn = document.getElementById('controls-btn');
+const backControlsBtn = document.getElementById('back-controls-btn');
+
+// Máquina de estados de pantalla: 'start' | 'playing' | 'paused' | 'gameover'
+let screen;
+// Sub-vista dentro del menú de pausa: 'menu' | 'controls'
+let pauseView;
+
+let board, current, next, score, lines, level, lastTime, dropAccum, dropInterval, animId, powerups;
 
 function themeVar(name) {
   return getComputedStyle(document.body).getPropertyValue(name).trim();
@@ -72,6 +85,10 @@ function toggleTheme() {
   applyTheme(isLight);
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
   if (board) draw();
+}
+
+function speedForLevel(level) {
+  return Math.max(100, 1000 - (level - 1) * 90);
 }
 
 function createBoard() {
@@ -139,7 +156,7 @@ function clearLines() {
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    dropInterval = speedForLevel(level);
     updateHUD();
   }
 }
@@ -289,7 +306,7 @@ function draw() {
 
   drawPowerups();
 
-  if (!gameOver) {
+  if (screen === 'playing' || screen === 'paused') {
     // ghost
     const gy = ghostY();
     for (let r = 0; r < current.shape.length; r++)
@@ -408,8 +425,8 @@ function drawBlast(ctx, cx, cy, t) {
 }
 
 function endGame() {
-  if (gameOver) return;
-  gameOver = true;
+  if (screen === 'gameover') return;
+  screen = 'gameover';
   cancelAnimationFrame(animId);
   animId = null;
   draw();
@@ -418,23 +435,35 @@ function endGame() {
   overlay.classList.remove('hidden');
 }
 
-function togglePause() {
-  if (gameOver) return;
-  paused = !paused;
-  if (!paused) {
-    overlay.classList.add('hidden');
-    lastTime = performance.now();
-    loop(lastTime);
-  } else {
-    cancelAnimationFrame(animId);
-    overlayTitle.textContent = 'PAUSA';
-    overlayScore.textContent = '';
-    overlay.classList.remove('hidden');
-  }
+function showPauseMenuView() {
+  pauseView = 'menu';
+  pauseMenuView.classList.remove('hidden');
+  controlsView.classList.add('hidden');
+}
+
+function showControlsView() {
+  pauseView = 'controls';
+  pauseMenuView.classList.add('hidden');
+  controlsView.classList.remove('hidden');
+}
+
+function openPauseMenu() {
+  screen = 'paused';
+  cancelAnimationFrame(animId);
+  animId = null;
+  showPauseMenuView();
+  pauseMenu.classList.remove('hidden');
+}
+
+function closePauseMenu() {
+  screen = 'playing';
+  pauseMenu.classList.add('hidden');
+  lastTime = performance.now();
+  animId = requestAnimationFrame(loop);
 }
 
 function loop(ts) {
-  if (gameOver || paused) { animId = null; return; }
+  if (screen !== 'playing') { animId = null; return; }
   const dt = ts - lastTime;
   lastTime = ts;
   dropAccum += dt;
@@ -447,19 +476,18 @@ function loop(ts) {
     }
   }
   updatePowerups(dt);
-  if (gameOver) return;
+  if (screen !== 'playing') return;
   draw();
   animId = requestAnimationFrame(loop);
 }
 
-function init() {
+function startGame() {
   board = createBoard();
   score = 0;
   lines = 0;
   level = 1;
-  paused = false;
-  gameOver = false;
-  dropInterval = 1000;
+  screen = 'playing';
+  dropInterval = speedForLevel(level);
   dropAccum = 0;
   lastTime = performance.now();
   powerups = [];
@@ -467,13 +495,34 @@ function init() {
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
+  pauseMenu.classList.add('hidden');
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
 
+function showStart() {
+  board = createBoard();
+  powerups = [];
+  screen = 'start';
+  draw();
+}
+
 document.addEventListener('keydown', e => {
-  if (e.code === 'KeyP') { togglePause(); return; }
-  if (paused || gameOver) return;
+  if (e.code === 'Escape') {
+    if (screen === 'playing') { openPauseMenu(); return; }
+    if (screen === 'paused') {
+      if (pauseView === 'controls') { showPauseMenuView(); return; }
+      closePauseMenu();
+      return;
+    }
+    return;
+  }
+  if (e.code === 'KeyP') {
+    if (screen === 'playing') { openPauseMenu(); return; }
+    if (screen === 'paused') { closePauseMenu(); return; }
+    return;
+  }
+  if (screen !== 'playing') return;
   switch (e.code) {
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -516,20 +565,24 @@ function powerupAt(bx, by) {
 }
 
 canvas.addEventListener('pointerdown', e => {
-  if (paused || gameOver) return;
+  if (screen !== 'playing') return;
   const { x, y } = boardCoordsFromEvent(e);
   const p = powerupAt(x, y);
   if (p) POWERUPS[p.key].onActivate(p);
 });
 
 canvas.addEventListener('pointermove', e => {
-  if (paused || gameOver) { canvas.style.cursor = 'default'; return; }
+  if (screen !== 'playing') { canvas.style.cursor = 'default'; return; }
   const { x, y } = boardCoordsFromEvent(e);
   canvas.style.cursor = powerupAt(x, y) ? 'pointer' : 'default';
 });
 
-restartBtn.addEventListener('click', init);
+restartBtn.addEventListener('click', startGame);
 themeToggleBtn.addEventListener('click', toggleTheme);
+resumeBtn.addEventListener('click', closePauseMenu);
+restartPauseBtn.addEventListener('click', startGame);
+controlsBtn.addEventListener('click', showControlsView);
+backControlsBtn.addEventListener('click', showPauseMenuView);
 
 applyTheme(localStorage.getItem('theme') === 'light');
-init();
+startGame();

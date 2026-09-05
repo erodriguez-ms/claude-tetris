@@ -48,9 +48,37 @@
 
     <div id="overlay" class="overlay hidden">
       <div class="overlay-box">
-        <p id="overlay-title">GAME OVER</p>
+        <p id="overlay-title" class="overlay-title">GAME OVER</p>
         <p id="overlay-score"></p>
-        <button id="restart-btn">Reiniciar</button>
+        <button id="restart-btn" class="overlay-btn">Reiniciar</button>
+      </div>
+    </div>
+
+    <div id="pause-menu" class="overlay hidden">
+      <div class="overlay-box">
+        <div id="pause-menu-view">
+          <p class="overlay-title">PAUSA</p>
+          <div id="pause-level-slot"></div>
+          <div class="pause-actions">
+            <button id="resume-btn" class="overlay-btn">Reanudar</button>
+            <button id="restart-pause-btn" class="overlay-btn">Reiniciar</button>
+            <button id="controls-btn" class="overlay-btn">Ver controles</button>
+          </div>
+        </div>
+        <div id="controls-view" class="hidden">
+          <p class="overlay-title">CONTROLES</p>
+          <div class="controls">
+            <ul>
+              <li><kbd>←</kbd><kbd>→</kbd> mover</li>
+              <li><kbd>↑</kbd> rotar</li>
+              <li><kbd>↓</kbd> bajar</li>
+              <li><kbd>Space</kbd> caída</li>
+              <li><kbd>P</kbd> pausa</li>
+              <li>click 💣 detonar</li>
+            </ul>
+          </div>
+          <button id="back-controls-btn" class="overlay-btn">Volver</button>
+        </div>
       </div>
     </div>
   </div>
