@@ -53,6 +53,50 @@
         <button id="restart-btn">Reiniciar</button>
       </div>
     </div>
+
+    <div id="start-screen" class="overlay hidden">
+      <div class="overlay-box">
+        <p id="start-title">TETRIS</p>
+
+        <div id="records-table">Sin records aún</div>
+
+        <label class="start-field">
+          <span class="label">Tu nombre</span>
+          <input type="text" id="player-name" maxlength="12" placeholder="Jugador" />
+        </label>
+
+        <label class="start-field">
+          <span class="label">Nivel inicial</span>
+          <select id="start-level">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12">12</option>
+            <option value="13">13</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+          </select>
+        </label>
+
+        <label class="start-field">
+          <span class="label">Skin</span>
+          <select id="skin-select">
+            <option value="retro">Retro</option>
+          </select>
+        </label>
+
+        <button id="play-btn">JUGAR</button>
+        <button id="reset-records">Borrar records</button>
+      </div>
+    </div>
   </div>
 
   <script src="game.js"></script>
