@@ -50,13 +50,17 @@ const nextCtx = nextCanvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
+const comboSection = document.getElementById('combo-section');
+const comboEl = document.getElementById('combo');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerups;
+let board, current, next, score, lines, level, screen, combo, maxCombo, lastTime, dropAccum, dropInterval, animId, powerups;
+
+function speedForLevel(level) { return Math.max(100, 1000 - (level - 1) * 90); }
 
 function themeVar(name) {
   return getComputedStyle(document.body).getPropertyValue(name).trim();
@@ -139,9 +143,9 @@ function clearLines() {
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
-    updateHUD();
+    dropInterval = speedForLevel(level);
   }
+  return cleared;
 }
 
 function spawnPowerup() {
@@ -228,7 +232,14 @@ function softDrop() {
 
 function lockPiece() {
   merge();
-  clearLines();
+  const cleared = clearLines();
+  if (cleared >= 1) {
+    combo++;
+    maxCombo = Math.max(maxCombo, combo);
+  } else {
+    combo = 0;
+  }
+  updateHUD();
   spawnPowerup();
   spawn();
 }
@@ -247,6 +258,8 @@ function updateHUD() {
   scoreEl.textContent = score.toLocaleString();
   linesEl.textContent = lines;
   levelEl.textContent = level;
+  comboSection.hidden = combo <= 1;
+  if (combo > 1) comboEl.textContent = combo;
 }
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
@@ -289,7 +302,7 @@ function draw() {
 
   drawPowerups();
 
-  if (!gameOver) {
+  if (screen !== 'gameover' && screen !== 'start' && current) {
     // ghost
     const gy = ghostY();
     for (let r = 0; r < current.shape.length; r++)
@@ -408,8 +421,8 @@ function drawBlast(ctx, cx, cy, t) {
 }
 
 function endGame() {
-  if (gameOver) return;
-  gameOver = true;
+  if (screen === 'gameover') return;
+  screen = 'gameover';
   cancelAnimationFrame(animId);
   animId = null;
   draw();
@@ -419,22 +432,23 @@ function endGame() {
 }
 
 function togglePause() {
-  if (gameOver) return;
-  paused = !paused;
-  if (!paused) {
-    overlay.classList.add('hidden');
-    lastTime = performance.now();
-    loop(lastTime);
-  } else {
+  if (screen === 'gameover' || screen === 'start') return;
+  if (screen === 'playing') {
+    screen = 'paused';
     cancelAnimationFrame(animId);
     overlayTitle.textContent = 'PAUSA';
     overlayScore.textContent = '';
     overlay.classList.remove('hidden');
+  } else if (screen === 'paused') {
+    screen = 'playing';
+    overlay.classList.add('hidden');
+    lastTime = performance.now();
+    loop(lastTime);
   }
 }
 
 function loop(ts) {
-  if (gameOver || paused) { animId = null; return; }
+  if (screen !== 'playing') { animId = null; return; }
   const dt = ts - lastTime;
   lastTime = ts;
   dropAccum += dt;
@@ -447,19 +461,20 @@ function loop(ts) {
     }
   }
   updatePowerups(dt);
-  if (gameOver) return;
+  if (screen !== 'playing') return;
   draw();
   animId = requestAnimationFrame(loop);
 }
 
-function init() {
+function startGame() {
   board = createBoard();
   score = 0;
   lines = 0;
   level = 1;
-  paused = false;
-  gameOver = false;
-  dropInterval = 1000;
+  combo = 0;
+  maxCombo = 0;
+  screen = 'playing';
+  dropInterval = speedForLevel(level);
   dropAccum = 0;
   lastTime = performance.now();
   powerups = [];
@@ -471,9 +486,16 @@ function init() {
   animId = requestAnimationFrame(loop);
 }
 
+function showStart() {
+  board = createBoard();
+  powerups = [];
+  screen = 'start';
+  draw();
+}
+
 document.addEventListener('keydown', e => {
   if (e.code === 'KeyP') { togglePause(); return; }
-  if (paused || gameOver) return;
+  if (screen !== 'playing') return;
   switch (e.code) {
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -516,20 +538,20 @@ function powerupAt(bx, by) {
 }
 
 canvas.addEventListener('pointerdown', e => {
-  if (paused || gameOver) return;
+  if (screen !== 'playing') return;
   const { x, y } = boardCoordsFromEvent(e);
   const p = powerupAt(x, y);
   if (p) POWERUPS[p.key].onActivate(p);
 });
 
 canvas.addEventListener('pointermove', e => {
-  if (paused || gameOver) { canvas.style.cursor = 'default'; return; }
+  if (screen !== 'playing') { canvas.style.cursor = 'default'; return; }
   const { x, y } = boardCoordsFromEvent(e);
   canvas.style.cursor = powerupAt(x, y) ? 'pointer' : 'default';
 });
 
-restartBtn.addEventListener('click', init);
+restartBtn.addEventListener('click', startGame);
 themeToggleBtn.addEventListener('click', toggleTheme);
 
 applyTheme(localStorage.getItem('theme') === 'light');
-init();
+startGame();
