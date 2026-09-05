@@ -219,3 +219,105 @@ kbd {
 #restart-btn:hover {
   background: #9bbdff;
 }
+
+/* ---- Records ---- */
+.save-record-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.save-record-form.hidden {
+  display: none;
+}
+
+#player-name {
+  background: var(--board-bg);
+  border: 1px solid var(--board-border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 13px;
+  width: 140px;
+}
+
+#save-record-btn {
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#save-record-btn:disabled,
+#player-name:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.records-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+}
+
+.records-list {
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 220px;
+}
+
+.records-list th,
+.records-list td {
+  padding: 3px 8px;
+  text-align: center;
+  color: var(--text);
+}
+
+.records-list th {
+  color: var(--label-color);
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.records-list td:nth-child(2) {
+  text-align: left;
+}
+
+.record-new {
+  background: rgba(122, 162, 247, 0.18);
+  outline: 1px solid var(--accent);
+}
+
+.records-stats {
+  font-size: 11px;
+  color: var(--controls-color);
+  margin-top: 4px;
+}
+
+.overlay-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+#reset-records {
+  background: transparent;
+  color: var(--controls-color);
+  border: 1px solid var(--board-border);
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+#reset-records:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
