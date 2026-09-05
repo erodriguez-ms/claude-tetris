@@ -55,8 +55,9 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
+const startScreen = document.getElementById('start-screen');
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerups;
+let board, current, next, score, lines, level, screen, lastTime, dropAccum, dropInterval, animId, powerups;
 
 function themeVar(name) {
   return getComputedStyle(document.body).getPropertyValue(name).trim();
@@ -125,6 +126,10 @@ function merge() {
         board[current.y + r][current.x + c] = current.shape[r][c];
 }
 
+function speedForLevel(level) {
+  return Math.max(100, 1000 - (level - 1) * 90);
+}
+
 function clearLines() {
   let cleared = 0;
   for (let r = ROWS - 1; r >= 0; r--) {
@@ -139,7 +144,7 @@ function clearLines() {
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    dropInterval = speedForLevel(level);
     updateHUD();
   }
 }
@@ -289,7 +294,7 @@ function draw() {
 
   drawPowerups();
 
-  if (!gameOver) {
+  if (screen === 'playing' || screen === 'paused') {
     // ghost
     const gy = ghostY();
     for (let r = 0; r < current.shape.length; r++)
@@ -408,8 +413,8 @@ function drawBlast(ctx, cx, cy, t) {
 }
 
 function endGame() {
-  if (gameOver) return;
-  gameOver = true;
+  if (screen === 'gameover') return;
+  screen = 'gameover';
   cancelAnimationFrame(animId);
   animId = null;
   draw();
@@ -419,9 +424,9 @@ function endGame() {
 }
 
 function togglePause() {
-  if (gameOver) return;
-  paused = !paused;
-  if (!paused) {
+  if (screen !== 'playing' && screen !== 'paused') return;
+  screen = screen === 'playing' ? 'paused' : 'playing';
+  if (screen === 'playing') {
     overlay.classList.add('hidden');
     lastTime = performance.now();
     loop(lastTime);
@@ -434,7 +439,7 @@ function togglePause() {
 }
 
 function loop(ts) {
-  if (gameOver || paused) { animId = null; return; }
+  if (screen !== 'playing') { animId = null; return; }
   const dt = ts - lastTime;
   lastTime = ts;
   dropAccum += dt;
@@ -447,19 +452,18 @@ function loop(ts) {
     }
   }
   updatePowerups(dt);
-  if (gameOver) return;
+  if (screen !== 'playing') return;
   draw();
   animId = requestAnimationFrame(loop);
 }
 
-function init() {
+function startGame() {
   board = createBoard();
   score = 0;
   lines = 0;
   level = 1;
-  paused = false;
-  gameOver = false;
-  dropInterval = 1000;
+  screen = 'playing';
+  dropInterval = speedForLevel(level);
   dropAccum = 0;
   lastTime = performance.now();
   powerups = [];
@@ -467,13 +471,23 @@ function init() {
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
+  startScreen.classList.add('hidden');
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
 
+function showStart() {
+  board = createBoard();
+  powerups = [];
+  screen = 'start';
+  overlay.classList.add('hidden');
+  startScreen.classList.remove('hidden');
+  draw();
+}
+
 document.addEventListener('keydown', e => {
   if (e.code === 'KeyP') { togglePause(); return; }
-  if (paused || gameOver) return;
+  if (screen !== 'playing') return;
   switch (e.code) {
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -516,20 +530,32 @@ function powerupAt(bx, by) {
 }
 
 canvas.addEventListener('pointerdown', e => {
-  if (paused || gameOver) return;
+  if (screen !== 'playing') return;
   const { x, y } = boardCoordsFromEvent(e);
   const p = powerupAt(x, y);
   if (p) POWERUPS[p.key].onActivate(p);
 });
 
 canvas.addEventListener('pointermove', e => {
-  if (paused || gameOver) { canvas.style.cursor = 'default'; return; }
+  if (screen !== 'playing') { canvas.style.cursor = 'default'; return; }
   const { x, y } = boardCoordsFromEvent(e);
   canvas.style.cursor = powerupAt(x, y) ? 'pointer' : 'default';
 });
 
-restartBtn.addEventListener('click', init);
+restartBtn.addEventListener('click', startGame);
 themeToggleBtn.addEventListener('click', toggleTheme);
 
+const playBtn = document.getElementById('play-btn');
+if (playBtn) playBtn.addEventListener('click', startGame);
+
+const startLevelSelect = document.getElementById('start-level');
+if (startLevelSelect) {
+  const savedLevel = localStorage.getItem('tetris-start-level');
+  if (savedLevel) startLevelSelect.value = savedLevel;
+  startLevelSelect.addEventListener('change', () => {
+    localStorage.setItem('tetris-start-level', startLevelSelect.value);
+  });
+}
+
 applyTheme(localStorage.getItem('theme') === 'light');
-init();
+showStart();
