@@ -99,6 +99,7 @@ body {
   background: var(--board-bg);
   border-radius: 4px;
   box-shadow: 0 0 40px var(--board-shadow);
+  cursor: default;
 }
 
 /* ---- Panel lateral ---- */
